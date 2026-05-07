@@ -3,6 +3,8 @@ require('dotenv').config();
 
 const express  = require('express');
 const cors     = require('cors');
+const fs       = require('fs');
+const path     = require('path');
 const passport = require('./src/config/passport');
 
 const app = express();
@@ -12,6 +14,19 @@ app.use(cors({ origin: process.env.FRONTEND_URL || '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
+
+// AUTO-CRÉATION DES TABLES AU DÉMARRAGE
+async function initDatabase() {
+  try {
+    const pool = require('./src/db');
+    const sql = fs.readFileSync(path.join(__dirname, 'src/db/schema.sql'), 'utf8');
+    await pool.query(sql);
+    console.log('✅ Base de données initialisée');
+  } catch (err) {
+    console.log('ℹ️ Base déjà initialisée ou erreur:', err.message);
+  }
+}
+initDatabase();
 
 // ROUTES
 app.use('/api/auth',    require('./src/routes/auth'));

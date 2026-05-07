@@ -1,51 +1,26 @@
-// src/middleware/auth.js
-const jwt = require('jsonwebtoken');
-const { query } = require('../db');
+const jwt  = require('jsonwebtoken');
+const pool = require('../db');
 
-const authMiddleware = async (req, res, next) => {
+const auth = async (req, res, next) => {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer '))
+    return res.status(401).json({ error: 'Token manquant.' });
+  const token = header.split(' ')[1];
   try {
-    // Récupérer le token dans le header Authorization
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Token manquant. Veuillez vous connecter.' });
-    }
-
-    const token = authHeader.split(' ')[1];
-
-    // Vérifier et décoder le token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    // Vérifier que l'utilisateur existe toujours
-    const result = await query(
-      'SELECT id, nom, prenom, email, plan FROM users WHERE id = $1',
-      [decoded.id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Utilisateur introuvable.' });
-    }
-
-    // Attacher l'utilisateur à la requête
+    const result  = await pool.query('SELECT id,email,plan FROM nc_users WHERE id=$1', [decoded.id]);
+    if (!result.rows.length) return res.status(401).json({ error: 'Utilisateur introuvable.' });
     req.user = result.rows[0];
     next();
-
-  } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Session expirée. Veuillez vous reconnecter.' });
-    }
-    return res.status(401).json({ error: 'Token invalide.' });
+  } catch (e) {
+    res.status(401).json({ error: 'Token invalide ou expiré.' });
   }
 };
 
-// Middleware pour vérifier le plan Pro
 const requirePro = (req, res, next) => {
-  if (req.user.plan !== 'pro') {
-    return res.status(403).json({
-      error: 'Fonctionnalité réservée au plan Pro.',
-      upgrade: true,
-    });
-  }
+  if (req.user.plan !== 'pro')
+    return res.status(403).json({ error: 'Cette fonctionnalité nécessite le Plan Pro.' });
   next();
 };
 
-module.exports = { authMiddleware, requirePro };
+module.exports = { auth, requirePro };

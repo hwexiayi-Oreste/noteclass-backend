@@ -1,22 +1,12 @@
-// src/db/index.js
 const { Pool } = require('pg');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl: { rejectUnauthorized: false }
 });
 
-pool.on('connect', () => {
-  console.log('✅ Connecté à PostgreSQL');
-});
+pool.connect()
+  .then(() => console.log('✅ Connecté à PostgreSQL'))
+  .catch(err => console.error('❌ Erreur connexion DB:', err.message));
 
-pool.on('error', (err) => {
-  console.error('❌ Erreur PostgreSQL :', err.message);
-});
-
-// Fonction utilitaire pour les requêtes
-const query = (text, params) => pool.query(text, params);
-
-module.exports = { pool, query };
+module.exports = pool;

@@ -1,48 +1,27 @@
-// src/config/passport.js
-const passport       = require('passport');
+const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const { query }      = require('../db');
+const pool = require('../db');
 
-passport.use(new GoogleStrategy({
-  clientID:     process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL:  process.env.GOOGLE_CALLBACK_URL,
-},
-async (accessToken, refreshToken, profile, done) => {
-  try {
-    const email     = profile.emails[0].value;
-    const google_id = profile.id;
-    const prenom    = profile.name.givenName  || '';
-    const nom       = (profile.name.familyName || '').toUpperCase();
-
-    // Vérifier si l'utilisateur existe déjà
-    let result = await query(
-      'SELECT * FROM users WHERE google_id=$1 OR email=$2',
-      [google_id, email]
-    );
-
-    if (result.rows.length > 0) {
-      // Mettre à jour google_id si connexion email existante
-      const user = result.rows[0];
-      if (!user.google_id) {
-        await query('UPDATE users SET google_id=$1 WHERE id=$2', [google_id, user.id]);
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || '/api/auth/google/callback'
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      const email = profile.emails[0].value;
+      let result = await pool.query('SELECT * FROM users WHERE google_id = $1 OR email = $2', [profile.id, email]);
+      if (result.rows.length === 0) {
+        result = await pool.query(
+          'INSERT INTO users (nom, prenom, email, google_id, plan) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+          [profile.name.familyName || '', profile.name.givenName || '', email, profile.id, 'decouverte']
+        );
       }
-      return done(null, user);
+      return done(null, result.rows[0]);
+    } catch (err) {
+      return done(err);
     }
-
-    // Créer un nouveau compte
-    result = await query(
-      `INSERT INTO users (nom, prenom, email, google_id)
-       VALUES ($1, $2, $3, $4)
-       RETURNING *`,
-      [nom, prenom, email, google_id]
-    );
-
-    return done(null, result.rows[0]);
-
-  } catch (err) {
-    return done(err, null);
-  }
-}));
+  }));
+}
 
 module.exports = passport;

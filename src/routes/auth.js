@@ -1,8 +1,7 @@
-const router  = require('express').Router();
-const bcrypt  = require('bcryptjs');
-const jwt     = require('jsonwebtoken');
-const pool    = require('../db');
-const passport = require('../config/passport');
+const router   = require('express').Router();
+const bcrypt   = require('bcryptjs');
+const jwt      = require('jsonwebtoken');
+const pool     = require('../db');
 
 const sign = (user) => jwt.sign(
   { id: user.id, email: user.email, plan: user.plan },
@@ -24,9 +23,13 @@ router.post('/register', async (req, res) => {
       [nom, prenom, email, hash, telephone || null]
     );
     const user = result.rows[0];
-    res.status(201).json({ token: sign(user), user: { id: user.id, nom: user.nom, prenom: user.prenom, email: user.email, plan: user.plan } });
+    res.status(201).json({
+      token: sign(user),
+      user: { id: user.id, nom: user.nom, prenom: user.prenom, email: user.email, plan: user.plan }
+    });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('Register error:', e.message);
+    res.status(500).json({ error: 'Erreur lors de la création du compte.' });
   }
 });
 
@@ -40,31 +43,50 @@ router.post('/login', async (req, res) => {
     if (!user || !user.password_hash) return res.status(401).json({ error: 'Identifiants invalides.' });
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(401).json({ error: 'Identifiants invalides.' });
-    res.json({ token: sign(user), user: { id: user.id, nom: user.nom, prenom: user.prenom, email: user.email, plan: user.plan } });
+    res.json({
+      token: sign(user),
+      user: { id: user.id, nom: user.nom, prenom: user.prenom, email: user.email, plan: user.plan }
+    });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    console.error('Login error:', e.message);
+    res.status(500).json({ error: 'Erreur de connexion.' });
   }
 });
 
 // GET /api/auth/me
 router.get('/me', require('../middleware/auth').auth, async (req, res) => {
   try {
-    const result = await pool.query('SELECT id,nom,prenom,email,telephone,plan,created_at FROM nc_users WHERE id=$1', [req.user.id]);
+    const result = await pool.query(
+      'SELECT id,nom,prenom,email,telephone,plan,created_at FROM nc_users WHERE id=$1',
+      [req.user.id]
+    );
     res.json(result.rows[0]);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// Google OAuth
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-router.get('/google/callback',
-  passport.authenticate('google', { session: false, failureRedirect: '/login' }),
-  (req, res) => {
-    const token = sign(req.user);
-    res.redirect(`${process.env.FRONTEND_URL || ''}?token=${token}`);
+// Google OAuth — désactivé si non configuré
+router.get('/google', (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.redirect((process.env.FRONTEND_URL || '') + '/noteclass-auth.html?error=google_non_configure');
   }
-);
+  const passport = require('../config/passport');
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res);
+});
+
+router.get('/google/callback', (req, res) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    return res.redirect((process.env.FRONTEND_URL || '') + '/noteclass-auth.html?error=google_non_configure');
+  }
+  const passport = require('../config/passport');
+  passport.authenticate('google', { session: false, failureRedirect: '/noteclass-auth.html' },
+    (err, user) => {
+      if (err || !user) return res.redirect('/noteclass-auth.html?error=google_echec');
+      const token = sign(user);
+      res.redirect(`${process.env.FRONTEND_URL || ''}?token=${token}`);
+    }
+  )(req, res);
+});
 
 module.exports = router;

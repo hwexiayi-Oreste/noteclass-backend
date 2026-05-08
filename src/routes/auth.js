@@ -2,6 +2,9 @@ const router   = require('express').Router();
 const bcrypt   = require('bcryptjs');
 const jwt      = require('jsonwebtoken');
 const pool     = require('../db');
+const { Resend } = require('resend');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const sign = (user) => jwt.sign(
   { id: user.id, email: user.email, plan: user.plan },
@@ -23,6 +26,44 @@ router.post('/register', async (req, res) => {
       [nom, prenom, email, hash, telephone || null]
     );
     const user = result.rows[0];
+
+    // Email de bienvenue (en arrière-plan)
+    resend.emails.send({
+      from: 'NoteClass <onboarding@resend.dev>',
+      to: email,
+      subject: 'Bienvenue sur NoteClass 🎓',
+      html: `
+        <div style="font-family:sans-serif;max-width:520px;margin:auto;padding:32px;background:#f5f6fa;border-radius:16px">
+          <div style="text-align:center;margin-bottom:24px">
+            <div style="display:inline-block;background:#1A237E;border-radius:14px;padding:14px 20px">
+              <span style="color:white;font-size:22px;font-weight:900;font-family:Georgia,serif">NoteClass</span>
+            </div>
+          </div>
+          <h2 style="color:#1A237E;font-family:Georgia,serif;margin-bottom:8px">Bienvenue, ${prenom} ${nom} ! 👋</h2>
+          <p style="color:#444;line-height:1.6">Votre compte NoteClass a été créé avec succès. Vous pouvez maintenant gérer vos notes scolaires facilement.</p>
+          <div style="background:white;border-radius:12px;padding:20px;margin:24px 0;border:1px solid #e8edf2">
+            <p style="margin:0 0 8px;font-weight:700;color:#1A237E">Votre plan actuel : Découverte (Gratuit)</p>
+            <ul style="margin:0;padding-left:20px;color:#555;line-height:2">
+              <li>1 école</li>
+              <li>2 classes par école</li>
+              <li>25 élèves par classe</li>
+              <li>Calcul automatique des moyennes</li>
+              <li>Appréciations automatiques</li>
+            </ul>
+          </div>
+          <div style="text-align:center;margin:24px 0">
+            <a href="https://hwexiayi-oreste.github.io/noteclass-frontend/noteclass-dashboard.html"
+              style="display:inline-block;background:#1A237E;color:white;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">
+              Accéder à mon espace
+            </a>
+          </div>
+          <p style="color:#888;font-size:12px;text-align:center;margin-top:24px;border-top:1px solid #ddd;padding-top:16px">
+            NoteClass — Gestion des notes scolaires au Bénin
+          </p>
+        </div>
+      `
+    }).catch(err => console.error('Email bienvenue error:', err.message));
+
     res.status(201).json({
       token: sign(user),
       user: { id: user.id, nom: user.nom, prenom: user.prenom, email: user.email, plan: user.plan }
@@ -85,7 +126,6 @@ router.get('/google/callback', (req, res, next) => {
       if (err || !user) {
         return res.redirect('https://hwexiayi-oreste.github.io/noteclass-frontend/noteclass-auth.html?error=google_echec');
       }
-      const jwt = require('jsonwebtoken');
       const token = jwt.sign(
         { id: user.id, email: user.email, plan: user.plan },
         process.env.JWT_SECRET,

@@ -25,11 +25,11 @@ router.post('/', auth, async (req, res) => {
     const classe = await pool.query('SELECT id FROM nc_classes WHERE id=$1 AND user_id=$2', [classe_id, req.user.id]);
     if (!classe.rows.length) return res.status(403).json({ error: 'Classe introuvable.' });
 
-    // Limite plan gratuit : 10 élèves par classe
+    // Limite plan gratuit : 25 élèves par classe
     if (req.user.plan === 'free') {
       const count = await pool.query('SELECT COUNT(*) FROM nc_eleves WHERE classe_id=$1', [classe_id]);
-      if (parseInt(count.rows[0].count) >= 10)
-        return res.status(403).json({ error: 'Plan Découverte limité à 10 élèves par classe. Passez au Plan Pro.' });
+      if (parseInt(count.rows[0].count) >= 25)
+        return res.status(403).json({ error: 'Plan Découverte limité à 25 élèves par classe. Passez au Plan Pro.' });
     }
 
     const result = await pool.query(

@@ -21,10 +21,17 @@ router.post('/', auth, async (req, res) => {
   if (!ecole_id || !nom || !matiere || !type_periode)
     return res.status(400).json({ error: 'Champs obligatoires manquants.' });
 
-  // Vérifier que l'école appartient à l'utilisateur
   try {
+    // Vérifier que l'école appartient à l'utilisateur
     const ecole = await pool.query('SELECT id FROM nc_ecoles WHERE id=$1 AND user_id=$2', [ecole_id, req.user.id]);
     if (!ecole.rows.length) return res.status(403).json({ error: 'École introuvable.' });
+
+    // Limite plan gratuit : 2 classes par école
+    if (req.user.plan === 'free') {
+      const count = await pool.query('SELECT COUNT(*) FROM nc_classes WHERE ecole_id=$1 AND user_id=$2', [ecole_id, req.user.id]);
+      if (parseInt(count.rows[0].count) >= 2)
+        return res.status(403).json({ error: 'Plan Découverte limité à 2 classes par école. Passez au Plan Pro.' });
+    }
 
     const result = await pool.query(
       'INSERT INTO nc_classes (ecole_id,user_id,nom,matiere,coefficient,type_periode,annee_scolaire) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *',

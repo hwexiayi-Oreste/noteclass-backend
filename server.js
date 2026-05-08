@@ -30,6 +30,7 @@ initDatabase();
 
 // ROUTES
 app.use('/api/auth',    require('./src/routes/auth'));
+app.use('/api/auth',    require('./src/routes/forgot-password'));
 app.use('/api/ecoles',  require('./src/routes/ecoles'));
 app.use('/api/classes', require('./src/routes/classes'));
 app.use('/api/eleves',  require('./src/routes/eleves'));

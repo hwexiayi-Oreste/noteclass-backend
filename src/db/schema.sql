@@ -101,3 +101,10 @@ DROP TRIGGER IF EXISTS trg_nc_appreciations_updated_at ON nc_appreciations;
 CREATE TRIGGER trg_nc_appreciations_updated_at
   BEFORE UPDATE ON nc_appreciations
   FOR EACH ROW EXECUTE FUNCTION nc_update_updated_at();
+
+CREATE TABLE IF NOT EXISTS nc_password_resets (
+  user_id    INTEGER PRIMARY KEY REFERENCES nc_users(id) ON DELETE CASCADE,
+  token      VARCHAR(255) NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);

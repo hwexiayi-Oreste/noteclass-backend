@@ -35,6 +35,7 @@ app.use('/api/ecoles',  require('./src/routes/ecoles'));
 app.use('/api/classes', require('./src/routes/classes'));
 app.use('/api/eleves',  require('./src/routes/eleves'));
 app.use('/api/notes',   require('./src/routes/notes'));
+app.use('/api/admin',   require('./src/routes/admin'));
 
 // SANTÉ
 app.get('/api/health', (req, res) => {

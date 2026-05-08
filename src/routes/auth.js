@@ -66,27 +66,34 @@ router.get('/me', require('../middleware/auth').auth, async (req, res) => {
   }
 });
 
-// Google OAuth — désactivé si non configuré
-router.get('/google', (req, res) => {
+// Google OAuth
+router.get('/google', (req, res, next) => {
   if (!process.env.GOOGLE_CLIENT_ID) {
-    return res.redirect((process.env.FRONTEND_URL || '') + '/noteclass-auth.html?error=google_non_configure');
+    return res.redirect('https://hwexiayi-oreste.github.io/noteclass-frontend/noteclass-auth.html?error=google_non_configure');
   }
   const passport = require('../config/passport');
-  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res);
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
-router.get('/google/callback', (req, res) => {
+router.get('/google/callback', (req, res, next) => {
   if (!process.env.GOOGLE_CLIENT_ID) {
-    return res.redirect((process.env.FRONTEND_URL || '') + '/noteclass-auth.html?error=google_non_configure');
+    return res.redirect('https://hwexiayi-oreste.github.io/noteclass-frontend/noteclass-auth.html?error=google_non_configure');
   }
   const passport = require('../config/passport');
-  passport.authenticate('google', { session: false, failureRedirect: '/noteclass-auth.html' },
+  passport.authenticate('google', { session: false },
     (err, user) => {
-      if (err || !user) return res.redirect('/noteclass-auth.html?error=google_echec');
-      const token = sign(user);
-      res.redirect(`${process.env.FRONTEND_URL || ''}?token=${token}`);
+      if (err || !user) {
+        return res.redirect('https://hwexiayi-oreste.github.io/noteclass-frontend/noteclass-auth.html?error=google_echec');
+      }
+      const jwt = require('jsonwebtoken');
+      const token = jwt.sign(
+        { id: user.id, email: user.email, plan: user.plan },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      );
+      res.redirect(`https://hwexiayi-oreste.github.io/noteclass-frontend/noteclass-auth.html?token=${token}`);
     }
-  )(req, res);
+  )(req, res, next);
 });
 
 module.exports = router;

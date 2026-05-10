@@ -10,7 +10,11 @@ const passport = require('./src/config/passport');
 const app = express();
 
 // MIDDLEWARES GLOBAUX
-app.use(cors({ origin: process.env.FRONTEND_URL || '*', credentials: true }));
+app.use(cors({
+  origin: '*',
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-key']
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());

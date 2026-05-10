@@ -1,9 +1,10 @@
 const router = require('express').Router();
 const pool   = require('../db');
 
-// Middleware admin — clé secrète uniquement, pas besoin de token utilisateur
+// Middleware admin — via Authorization header
 const adminOnly = (req, res, next) => {
-  const key = req.headers['x-admin-key'];
+  const auth = req.headers['authorization'];
+  const key = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!key || key !== process.env.ADMIN_SECRET_KEY) {
     return res.status(403).json({ error: 'Accès refusé.' });
   }

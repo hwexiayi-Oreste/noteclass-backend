@@ -1,17 +1,14 @@
 const router = require('express').Router();
 const pool   = require('../db');
 
-// Middleware admin — via Authorization header
 const adminOnly = (req, res, next) => {
-  const auth = req.headers['authorization'];
-  const key = auth && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const key = req.query.key || req.body.key;
   if (!key || key !== process.env.ADMIN_SECRET_KEY) {
     return res.status(403).json({ error: 'Accès refusé.' });
   }
   next();
 };
 
-// GET /api/admin/users
 router.get('/users', adminOnly, async (req, res) => {
   try {
     const result = await pool.query(
@@ -23,7 +20,6 @@ router.get('/users', adminOnly, async (req, res) => {
   }
 });
 
-// PUT /api/admin/users/:id/plan
 router.put('/users/:id/plan', adminOnly, async (req, res) => {
   const { plan } = req.body;
   if (!['free', 'pro'].includes(plan))
